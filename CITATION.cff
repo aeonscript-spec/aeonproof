@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+title: "AeonProof: A proof vault for the age of fakes"
+message: "If you use AeonProof in academic or technical work, please cite it as below."
+type: software
+authors:
+  - given-names: "Moustapha"
+    family-names: "Dramé"
+    affiliation: "Independent"
+    email: "contact@aeonscript.org"
+  - name: "The AeonProof Contributors"
+repository-code: "https://github.com/aeonscript-spec/aeonproof"
+url: "https://proof.aeonscript.org"
+abstract: >-
+  AeonProof is an open content-registration and integrity-anchoring format for
+  the age of synthetic media. Creators register an original (audio, video,
+  image, document) and produce a compact, Ed25519-signed, timestamped proof
+  record that detects any later modification (exact hash), distinguishes
+  tampering from legitimate re-encoding (perceptual hash), and is archived in
+  DNA via AeonScript through a Merkle root — a physically immutable,
+  offline, century-scale anchor of truth. Cryptography detects; DNA archives.
+keywords:
+  - "content authenticity"
+  - "provenance"
+  - "deepfake"
+  - "digital signature"
+  - "Ed25519"
+  - "DNA storage"
+  - "tamper detection"
+license: "MIT"
+version: "0.1.0"
+date-released: "2026-06-15"

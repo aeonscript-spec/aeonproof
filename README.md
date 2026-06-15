@@ -2,6 +2,12 @@
 
 **A proof vault for the age of fakes.** Cryptography detects tampering; DNA archives the proof for centuries.
 
+[![CI](https://github.com/aeonscript-spec/aeonproof/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aeonscript-spec/aeonproof/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT%20%2B%20CC--BY--SA-8b7cff)](LICENSE)
+[![Site](https://img.shields.io/badge/site-proof.aeonscript.org-8b7cff)](https://proof.aeonscript.org)
+[![Built on AeonScript](https://img.shields.io/badge/built%20on-AeonScript-00d4a8)](https://aeonscript.org)
+[![Discussions](https://img.shields.io/github/discussions/aeonscript-spec/aeonproof)](https://github.com/aeonscript-spec/aeonproof/discussions)
+
 🌐 **[proof.aeonscript.org](https://proof.aeonscript.org)** · 🔬 [Live demo](https://proof.aeonscript.org/demo.html) · 📜 [Spec](spec/SPEC-PROOF-RECORD-v0.1.md) · 🧬 Built on [AeonScript](https://aeonscript.org)
 
 ---
