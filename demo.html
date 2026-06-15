@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AeonProof — Coffre-fort de preuves (démo)</title>
+<meta name="description" content="Enregistrez un original, modifiez-le, re-vérifiez — voyez le verdict d'authenticité changer en direct. Signatures Ed25519 réelles. 100% local.">
+<style>
+  :root {
+    --bg:#0a0a0c; --card:#111016; --elev:#16151d; --border:#23222c;
+    --text:#e9e8ee; --dim:#8d8a99; --faint:#4c4a57;
+    --accent:#8b7cff; --accent-2:#6d5cff;
+    --ok:#00d4a8; --warn:#f5a623; --bad:#ff6b6b; --neutral:#6e7280;
+    --mono:"SF Mono","JetBrains Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"Inter","Segoe UI",Roboto,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
+  .container{max-width:1000px;margin:0 auto;padding:24px}
+  header{border-bottom:1px solid var(--border);padding:14px 24px;background:rgba(10,10,12,.9);backdrop-filter:blur(12px);position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px}
+  .brand svg{width:22px;height:22px}
+  .brand-mode{color:var(--accent);font-size:11px;padding:3px 9px;background:rgba(139,124,255,.12);border:1px solid rgba(139,124,255,.3);border-radius:100px;margin-left:6px;font-family:var(--mono)}
+  .top-links{display:flex;gap:18px;font-size:13px}
+  .top-links a{color:var(--dim);text-decoration:none}
+  .top-links a:hover{color:var(--text)}
+  @media(max-width:600px){.top-links{display:none}}
+
+  .hero{padding:46px 0 16px}
+  .label{font-size:12px;text-transform:uppercase;letter-spacing:.15em;color:var(--accent);margin-bottom:12px;font-family:var(--mono)}
+  h1{font-size:clamp(28px,5vw,42px);letter-spacing:-.03em;line-height:1.1;font-weight:600;margin-bottom:14px}
+  h1 em{color:var(--accent);font-style:normal}
+  .lede{font-size:16px;color:var(--dim);max-width:680px}
+  .lede strong{color:var(--text)}
+  .crypto-badge{display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:6px 12px;border-radius:100px;background:rgba(0,212,168,.08);border:1px solid rgba(0,212,168,.25);font-size:12px;color:var(--ok);font-family:var(--mono)}
+
+  .tabs{display:flex;gap:6px;margin:28px 0 6px;flex-wrap:wrap}
+  .tab{background:var(--card);border:1px solid var(--border);color:var(--dim);padding:8px 16px;border-radius:8px;font-family:inherit;font-size:13px;cursor:pointer;transition:all .15s}
+  .tab:hover{color:var(--text)}
+  .tab.active{background:var(--accent);color:#0a0a0c;border-color:var(--accent);font-weight:600}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;min-width:0;display:flex;flex-direction:column;gap:12px}
+  .card-head{display:flex;align-items:center;gap:8px}
+  .card-num{width:24px;height:24px;border-radius:50%;background:var(--elev);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-family:var(--mono);color:var(--accent)}
+  .card-title{font-size:14px;font-weight:600}
+  .card-sub{font-size:12px;color:var(--dim)}
+
+  textarea{background:#08070b;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:12px;resize:vertical;min-height:120px;font-family:inherit;outline:none;width:100%}
+  textarea:focus{border-color:var(--accent)}
+  .dropzone{border:2px dashed var(--border);border-radius:8px;padding:24px 14px;text-align:center;cursor:pointer;transition:all .15s;background:#08070b;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+  .dropzone:hover,.dropzone.dragover{border-color:var(--accent);background:rgba(139,124,255,.05)}
+  .dz-ico{font-size:28px}
+  .dz-text{font-size:14px;color:var(--text)}
+  .dz-text span{color:var(--dim);font-size:13px}
+  .dz-hint{font-size:11px;color:var(--faint)}
+  .preview{max-width:100%;max-height:160px;border-radius:8px;border:1px solid var(--border);display:block;margin-top:8px}
+  .filechip{display:flex;align-items:center;gap:10px;margin-top:8px;padding:10px 12px;background:var(--elev);border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:var(--mono);color:var(--text)}
+  .filechip .fi{font-size:20px}
+  .filechip .fn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .btn{padding:11px 20px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s;display:inline-flex;align-items:center;gap:8px}
+  .btn-primary{background:var(--accent);color:#0a0a0c}
+  .btn-primary:hover{background:var(--accent-2);color:#fff;transform:translateY(-1px)}
+  .btn-verify{background:transparent;color:var(--text);border:1px solid var(--border)}
+  .btn-verify:hover{border-color:var(--accent);color:var(--accent)}
+  .btn-ghost{background:transparent;color:var(--dim);border:1px solid var(--border)}
+  .btn-ghost:hover{color:var(--text)}
+
+  .out{background:#08070b;border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--dim);overflow-x:auto;white-space:pre;min-height:60px}
+  .out .k{color:var(--accent)}
+  .out .v{color:var(--text)}
+  .out .sig{color:var(--ok)}
+
+  .verdict{border-radius:10px;padding:18px 20px;display:none;animation:pop .25s}
+  .verdict.show{display:block}
+  @keyframes pop{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
+  .verdict-title{font-size:18px;font-weight:700;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .verdict-body{font-size:13.5px;line-height:1.55}
+  .v-ok{background:rgba(0,212,168,.1);border:1px solid rgba(0,212,168,.35)}.v-ok .verdict-title{color:var(--ok)}
+  .v-warn{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.35)}.v-warn .verdict-title{color:var(--warn)}
+  .v-bad{background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.35)}.v-bad .verdict-title{color:var(--bad)}
+  .v-neutral{background:rgba(110,114,128,.12);border:1px solid rgba(110,114,128,.35)}.v-neutral .verdict-title{color:var(--dim)}
+
+  .registry{margin-top:24px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+  .registry-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .registry-title{font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono)}
+  .registry-list{display:flex;flex-direction:column;gap:6px}
+  .reg-item{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--elev);border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:var(--mono)}
+  .reg-item .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+  .reg-item .hash{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .reg-empty{font-size:13px;color:var(--faint);font-style:italic}
+
+  .aha{margin-top:20px;padding:16px 20px;border-radius:10px;background:linear-gradient(135deg,rgba(139,124,255,.08),rgba(109,92,255,.03));border:1px solid rgba(139,124,255,.25);font-size:14px;color:var(--dim);line-height:1.6}
+  .aha strong{color:var(--accent)}
+  .aha b{color:var(--text)}
+
+  footer{padding:36px 0;border-top:1px solid var(--border);color:var(--faint);font-size:13px;text-align:center;margin-top:32px}
+  footer a{color:var(--accent);text-decoration:none}
+  code{background:#08070b;border:1px solid var(--border);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:.92em;color:var(--accent)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="16" cy="16" r="13" fill="none" stroke="#8b7cff" stroke-width="1.8"/>
+      <path d="M11 16.5 L14.5 20 L21 12.5" fill="none" stroke="#8b7cff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    AeonProof<span class="brand-mode">DÉMO COFFRE-FORT</span>
+  </div>
+  <div class="top-links">
+    <a href="index.html">Présentation</a>
+    <a href="https://aeonscript.org">AeonScript</a>
+    <a href="spec/SPEC-PROOF-RECORD-v0.1.md">Spec</a>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="label">Démo · 100 % local · rien n'est envoyé</div>
+    <h1>Enregistre un original.<br>Modifie-le. <em>Vois la preuve parler.</em></h1>
+    <p class="lede">
+      AeonProof calcule l'empreinte cryptographique d'un fichier, la <strong>signe avec Ed25519</strong>, l'horodate, et l'emballe au format AeonScript — prêt à être gravé dans l'ADN. <strong>Enregistre un fichier, change-le ne serait-ce qu'une virgule, re-vérifie : le verdict change sous tes yeux.</strong>
+    </p>
+    <div class="crypto-badge" id="crypto-badge">🔑 Initialisation de la clé Ed25519…</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-mode="text">📝 Texte</button>
+    <button class="tab" data-mode="image">🖼️ Image</button>
+    <button class="tab" data-mode="file">🎬 Fichier (audio / vidéo / PDF)</button>
+  </div>
+
+  <div class="grid">
+    <!-- REGISTER -->
+    <div class="card">
+      <div class="card-head"><div class="card-num">1</div><div><div class="card-title">Enregistrer l'original</div><div class="card-sub">empreinte + signature Ed25519 + horodatage</div></div></div>
+      <textarea id="reg-text" spellcheck="false" placeholder="Colle ou écris ton contenu original ici…">Communiqué officiel — 13 juin 2026. Le témoin confirme les faits tels que rapportés.</textarea>
+      <div class="dropzone" id="reg-drop" style="display:none">
+        <input type="file" id="reg-file" hidden>
+        <div class="dz-ico" id="reg-dz-ico">🖼️</div>
+        <div class="dz-text" id="reg-dz-text">Glisse l'original<br><span>ou clique pour choisir</span></div>
+        <div class="dz-hint">garde-le petit (&lt; 2 Mo) pour la rapidité</div>
+        <img id="reg-preview" class="preview" style="display:none" alt="">
+        <div id="reg-filechip" class="filechip" style="display:none"><span class="fi">📄</span><span class="fn"></span></div>
+      </div>
+      <button class="btn btn-primary" id="btn-register">🔒 Enregistrer dans le coffre →</button>
+      <div class="out" id="reg-out">La fiche de preuve apparaîtra ici.</div>
+    </div>
+
+    <!-- VERIFY -->
+    <div class="card">
+      <div class="card-head"><div class="card-num">2</div><div><div class="card-title">Vérifier un fichier suspect</div><div class="card-sub">compare au coffre, rend un verdict</div></div></div>
+      <textarea id="ver-text" spellcheck="false" placeholder="Colle ici le fichier à vérifier (essaie de modifier l'original ci-contre)…">Communiqué officiel — 13 juin 2026. Le témoin confirme les faits tels que rapportés.</textarea>
+      <div class="dropzone" id="ver-drop" style="display:none">
+        <input type="file" id="ver-file" hidden>
+        <div class="dz-ico" id="ver-dz-ico">🔍</div>
+        <div class="dz-text" id="ver-dz-text">Glisse le fichier à vérifier<br><span>ou clique pour choisir</span></div>
+        <div class="dz-hint">le même, une version re-compressée, ou un autre</div>
+        <img id="ver-preview" class="preview" style="display:none" alt="">
+        <div id="ver-filechip" class="filechip" style="display:none"><span class="fi">📄</span><span class="fn"></span></div>
+      </div>
+      <button class="btn btn-verify" id="btn-verify">🔎 Vérifier l'authenticité</button>
+      <div class="verdict" id="verdict"></div>
+    </div>
+  </div>
+
+  <div class="aha" id="aha">
+    💡 <strong>L'expérience à faire :</strong> clique <b>Enregistrer</b>, puis dans la case de droite <b>change une seule virgule</b> et clique <b>Vérifier</b>. Le verdict passe de <b>✅ Original vérifié</b> à <b>🔴 Contenu altéré</b>. Ajoute seulement une espace en fin de ligne → <b>🟡 Même contenu</b>.
+  </div>
+
+  <div class="registry">
+    <div class="registry-head">
+      <div class="registry-title">🗄️ Coffre-fort (registre local)</div>
+      <button class="btn btn-ghost" id="btn-clear" style="padding:6px 12px;font-size:12px">Vider le coffre</button>
+    </div>
+    <div class="registry-list" id="registry-list"><div class="reg-empty">Aucun original enregistré pour l'instant.</div></div>
+  </div>
+
+  <footer>
+    AeonProof — un coffre-fort de preuves bâti sur <a href="https://aeonscript.org">AeonScript</a>.<br>
+    Démo locale : aucune donnée ne quitte ton navigateur. La cryptographie détecte, l'ADN archive.
+  </footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let mode = "text";
+let regFile = null, ver = {bytes:null,mime:"",phash:null,name:""}, reg = {bytes:null,mime:"",phash:null,name:""};
+let keypair = null, pubkeyHex = "", ed25519ok = false;
+
+// ---------- Ed25519 keypair (Web Crypto, persisted) ----------
+function hex(buf){return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");}
+async function initKeys(){
+  try{
+    const stored = localStorage.getItem("aeonproof-key");
+    if(stored){
+      const jwk = JSON.parse(stored);
+      keypair = {
+        privateKey: await crypto.subtle.importKey("jwk", jwk.priv, {name:"Ed25519"}, true, ["sign"]),
+        publicKey:  await crypto.subtle.importKey("jwk", jwk.pub,  {name:"Ed25519"}, true, ["verify"]),
+      };
+    } else {
+      keypair = await crypto.subtle.generateKey({name:"Ed25519"}, true, ["sign","verify"]);
+      const priv = await crypto.subtle.exportKey("jwk", keypair.privateKey);
+      const pub  = await crypto.subtle.exportKey("jwk", keypair.publicKey);
+      localStorage.setItem("aeonproof-key", JSON.stringify({priv,pub}));
+    }
+    const raw = await crypto.subtle.exportKey("raw", keypair.publicKey);
+    pubkeyHex = hex(raw);
+    ed25519ok = true;
+    $("crypto-badge").innerHTML = `🔑 Clé Ed25519 active — pubkey ${pubkeyHex.slice(0,16)}…`;
+  }catch(e){
+    ed25519ok = false;
+    $("crypto-badge").innerHTML = `⚠️ Ed25519 non supporté par ce navigateur — signatures simulées`;
+    $("crypto-badge").style.color = "var(--warn)";
+  }
+}
+// canonical JSON (recursively sorted keys) — demo approximation of RFC 8785 JCS
+function canonical(o){
+  if(o===null||typeof o!=="object") return JSON.stringify(o);
+  if(Array.isArray(o)) return "["+o.map(canonical).join(",")+"]";
+  return "{"+Object.keys(o).sort().map(k=>JSON.stringify(k)+":"+canonical(o[k])).join(",")+"}";
+}
+async function signRecord(recNoSig){
+  const data = new TextEncoder().encode(canonical(recNoSig));
+  if(!ed25519ok) return {alg:"ed25519-sim", value:(await sha256Hex(data)), verified:false};
+  const sig = await crypto.subtle.sign({name:"Ed25519"}, keypair.privateKey, data);
+  const value = hex(sig);
+  const verified = await crypto.subtle.verify({name:"Ed25519"}, keypair.publicKey, sig, data);
+  return {alg:"ed25519", value, verified};
+}
+
+// ---------- hashing ----------
+async function sha256Hex(bytes){ return hex(await crypto.subtle.digest("SHA-256", bytes)); }
+function normalizeText(s){ return s.toLowerCase().replace(/\s+/g," ").trim(); }
+function levRatio(a,b){a=a.slice(0,2000);b=b.slice(0,2000);const m=a.length,n=b.length;if(!m&&!n)return 1;if(!m||!n)return 0;let prev=Array(n+1).fill(0).map((_,i)=>i),cur=Array(n+1).fill(0);for(let i=1;i<=m;i++){cur[0]=i;for(let j=1;j<=n;j++){const c=a[i-1]===b[j-1]?0:1;cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+c);}[prev,cur]=[cur,prev];}return 1-prev[n]/Math.max(m,n);}
+async function aHashImage(bytes,mime){
+  const url=URL.createObjectURL(new Blob([bytes],{type:mime}));
+  try{
+    const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;});
+    const c=document.createElement("canvas");c.width=8;c.height=8;const ctx=c.getContext("2d");ctx.drawImage(img,0,0,8,8);
+    const d=ctx.getImageData(0,0,8,8).data;const g=[];for(let i=0;i<64;i++)g.push(0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2]);
+    const avg=g.reduce((a,b)=>a+b,0)/64;let bits="";for(let i=0;i<64;i++)bits+=g[i]>=avg?"1":"0";
+    let h="";for(let i=0;i<64;i+=4)h+=parseInt(bits.slice(i,i+4),2).toString(16);return h;
+  }finally{URL.revokeObjectURL(url);}
+}
+function hammingHex(a,b){if(!a||!b||a.length!==b.length)return 64;let d=0;for(let i=0;i<a.length;i++){let x=parseInt(a[i],16)^parseInt(b[i],16);while(x){d+=x&1;x>>=1;}}return d;}
+
+// ---------- registry ----------
+function loadReg(){try{return JSON.parse(localStorage.getItem("aeonproof-reg")||"[]");}catch(e){return [];}}
+function saveReg(r){localStorage.setItem("aeonproof-reg",JSON.stringify(r));renderReg();}
+function renderReg(){
+  const r=loadReg();const list=$("registry-list");
+  if(!r.length){list.innerHTML='<div class="reg-empty">Aucun original enregistré pour l\'instant.</div>';return;}
+  list.innerHTML=r.map(x=>`<div class="reg-item"><span class="dot"></span><span class="hash">${x.media_type} · ${x.exact.slice(0,22)}… · ${new Date(x.ts).toLocaleString()}</span></div>`).join("");
+}
+
+// ---------- register ----------
+async function doRegister(){
+  let bytes, mime, phash=null;
+  if(mode==="text"){
+    const t=$("reg-text").value; if(!t.trim()){$("reg-out").textContent="Écris quelque chose d'abord.";return;}
+    bytes=new TextEncoder().encode(t); mime="text/plain"; phash={algo:"text-norm",value:normalizeText(t)};
+  }else{
+    if(!reg.bytes){$("reg-out").textContent="Choisis un fichier d'abord.";return;}
+    bytes=reg.bytes; mime=reg.mime;
+    if(mode==="image") phash={algo:"ahash",value:reg.phash};
+  }
+  const exact="sha256:"+await sha256Hex(bytes);
+  const ts=Date.now();
+  const record={aeonproof:"0.1",work:{media_type:mime,size_bytes:bytes.length},hashes:{exact,perceptual:phash},registrant:{id:"did:demo:local-user",pubkey:"ed25519:"+pubkeyHex},timestamp:{claimed:new Date(ts).toISOString()}};
+  const signature=await signRecord(record);
+  const signed={...record,signature:{alg:signature.alg,value:signature.value}};
+  const recJson=canonical(signed);
+  const id=(await sha256Hex(new TextEncoder().encode(recJson))).slice(0,16);
+  const tag=`|AEONSCRIPT=0.1;L1=L1-4;L4=rs255-223;TYPE=application/vnd.aeonproof+json;LEN=${recJson.length};ID=${id};CHECKSUM=${exact}|`;
+  const r=loadReg();
+  r.unshift({exact,perceptual:phash,media_type:mime,ts,textRef:mode==="text"?$("reg-text").value:null});
+  saveReg(r.slice(0,20));
+  const sigLine = signature.alg==="ed25519"
+    ? `<span class="sig"># ✓ Signature Ed25519 réelle — vérifiée : ${signature.verified}</span>`
+    : `<span class="k"># Signature simulée (Ed25519 indisponible)</span>`;
+  $("reg-out").innerHTML =
+    `<span class="k"># Fiche de preuve (payload AeonScript)</span>\n`+
+    JSON.stringify(signed,null,2).replace(/"(exact|perceptual|aeonproof|signature|pubkey)"/g,'<span class="k">"$1"</span>')+
+    `\n\n<span class="k"># Étiquette AeonScript</span>\n<span class="v">${tag}</span>\n\n`+sigLine+
+    `\n<span class="sig"># ✓ Gravé dans le coffre — prêt pour l'ADN</span>`;
+}
+
+// ---------- verify ----------
+async function doVerify(){
+  const r=loadReg();
+  if(!r.length){showVerdict("neutral","⚪ Coffre vide","Enregistre d'abord un original dans la case de gauche.");return;}
+  let bytes,mime,phash=null,text=null;
+  if(mode==="text"){
+    text=$("ver-text").value; if(!text.trim()){showVerdict("neutral","⚪ Rien à vérifier","Colle un texte à vérifier.");return;}
+    bytes=new TextEncoder().encode(text); mime="text/plain";
+  }else{
+    if(!ver.bytes){showVerdict("neutral","⚪ Aucun fichier","Choisis un fichier à vérifier.");return;}
+    bytes=ver.bytes; mime=ver.mime; phash=ver.phash;
+  }
+  const exact="sha256:"+await sha256Hex(bytes);
+  if(r.some(x=>x.exact===exact)){showVerdict("ok","✅ Original vérifié","Bit pour bit identique à un original enregistré. Aucune modification depuis l'enregistrement, et la signature Ed25519 de la fiche fait foi.");return;}
+  const cands=r.filter(x=>x.media_type===mime);
+  if(mode==="text"){
+    const nv=normalizeText(text);
+    if(cands.some(x=>x.perceptual&&x.perceptual.value===nv)){showVerdict("warn","🟡 Même contenu, modification cosmétique","Les octets diffèrent (espaces, casse) mais le contenu normalisé est identique. Transformation bénigne.");return;}
+    let best=0;for(const x of cands)if(x.textRef)best=Math.max(best,levRatio(nv,normalizeText(x.textRef)));
+    if(best>=0.5){showVerdict("bad","🔴 Contenu altéré",`Texte clairement dérivé d'un original enregistré (similarité ${Math.round(best*100)}%) mais dont le contenu a été modifié. Falsification détectée.`);return;}
+    showVerdict("neutral","⚪ Non enregistré","Aucun original correspondant. Le système ne peut rien affirmer sur ce fichier.");return;
+  } else if(mode==="image"){
+    let bd=64;for(const x of cands)if(x.perceptual&&x.perceptual.algo==="ahash")bd=Math.min(bd,hammingHex(phash,x.perceptual.value));
+    if(bd<=4){showVerdict("warn","🟡 Même contenu, ré-encodé",`Empreinte perceptuelle quasi identique (distance ${bd}/64) — re-compression ou changement de format, contenu inchangé.`);return;}
+    if(bd<=18){showVerdict("bad","🔴 Contenu altéré",`Image proche d'un original mais visiblement modifiée (distance ${bd}/64). Retouche détectée.`);return;}
+    showVerdict("neutral","⚪ Non enregistré",`Aucun original perceptuellement proche (distance ${bd}/64).`);return;
+  } else {
+    // file mode: exact hash integrity only (audio/video/pdf perceptual = production: Chromaprint/TMK)
+    showVerdict("bad","🔴 Aucune correspondance exacte","Ce fichier ne correspond bit pour bit à aucun original enregistré — il a été modifié, re-compressé, ou n'a jamais été enregistré. <br><br><span style='color:var(--dim)'>Note : pour distinguer une re-compression légitime d'une falsification sur l'audio/vidéo, la version production utilise une empreinte perceptuelle (Chromaprint pour l'audio, TMK+PDQF pour la vidéo). Ce démo montre l'intégrité exacte, qui marche sur n'importe quel fichier.</span>");return;
+  }
+}
+function showVerdict(kind,title,body){const v=$("verdict");v.className="verdict show v-"+kind;v.innerHTML=`<div class="verdict-title">${title}</div><div class="verdict-body">${body}</div>`;}
+
+// ---------- file loading ----------
+function wireDrop(dropId,fileId,prevId,chipId,store){
+  const drop=$(dropId),file=$(fileId),prev=$(prevId),chip=$(chipId);
+  drop.addEventListener("click",e=>{if(e.target!==prev)file.click();});
+  file.addEventListener("change",e=>handle(e.target.files[0]));
+  ["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("dragover");}));
+  ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("dragover");}));
+  drop.addEventListener("drop",e=>{if(e.dataTransfer.files[0])handle(e.dataTransfer.files[0]);});
+  async function handle(f){
+    if(!f)return;
+    const bytes=new Uint8Array(await f.arrayBuffer());
+    let phash=null;
+    if(f.type.startsWith("image/")){
+      phash=await aHashImage(bytes,f.type);
+      const url=URL.createObjectURL(new Blob([bytes],{type:f.type}));
+      prev.onload=()=>URL.revokeObjectURL(url);prev.src=url;prev.style.display="block";chip.style.display="none";
+    }else{
+      prev.style.display="none";chip.style.display="flex";
+      const ico=f.type.startsWith("audio/")?"🎵":f.type.startsWith("video/")?"🎬":f.type.includes("pdf")?"📕":"📄";
+      chip.querySelector(".fi").textContent=ico;
+      chip.querySelector(".fn").textContent=`${f.name} · ${(bytes.length/1024).toFixed(1)} Ko · ${f.type||"binaire"}`;
+    }
+    store(bytes,f.type||"application/octet-stream",phash,f.name);
+  }
+}
+
+// ---------- mode switch ----------
+function switchMode(m){
+  mode=m;
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.mode===m));
+  const txt=m==="text";
+  $("reg-text").style.display=txt?"block":"none";
+  $("ver-text").style.display=txt?"block":"none";
+  $("reg-drop").style.display=txt?"none":"flex";
+  $("ver-drop").style.display=txt?"none":"flex";
+  // adjust accept + hints per mode
+  const acc = m==="image" ? "image/*" : "";
+  $("reg-file").accept=acc; $("ver-file").accept=acc;
+  $("verdict").className="verdict";
+  $("reg-out").textContent="La fiche de preuve apparaîtra ici.";
+  // reset loaded files
+  reg={bytes:null,mime:"",phash:null,name:""}; ver={bytes:null,mime:"",phash:null,name:""};
+  ["reg-preview","ver-preview"].forEach(i=>{$(i).style.display="none";});
+  ["reg-filechip","ver-filechip"].forEach(i=>{$(i).style.display="none";});
+}
+
+// ---------- init ----------
+$("btn-register").addEventListener("click",doRegister);
+$("btn-verify").addEventListener("click",doVerify);
+$("btn-clear").addEventListener("click",()=>{localStorage.removeItem("aeonproof-reg");renderReg();$("verdict").className="verdict";});
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>switchMode(t.dataset.mode)));
+wireDrop("reg-drop","reg-file","reg-preview","reg-filechip",(b,m,p,n)=>{reg={bytes:b,mime:m,phash:p,name:n};});
+wireDrop("ver-drop","ver-file","ver-preview","ver-filechip",(b,m,p,n)=>{ver={bytes:b,mime:m,phash:p,name:n};});
+renderReg();
+initKeys();
+</script>
+
+</body>
+</html>
