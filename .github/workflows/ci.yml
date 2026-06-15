@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  static-checks:
+    name: Static site checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Sanity checks (JS syntax, content markers, CNAME, spec version)
+        run: node tools/ci-check.js
+
+  links:
+    name: Internal link check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify referenced local files exist
+        run: |
+          set -euo pipefail
+          fail=0
+          for f in index.html demo.html; do
+            # extract local hrefs (href="...") that are not http(s) or anchors
+            grep -oE 'href="[^"#]+"' "$f" | sed 's/href="//;s/"//' \
+              | grep -vE '^https?:' | while read -r target; do
+                # strip anchor fragments and trailing slashes
+                t="${target%%#*}"
+                [ -z "$t" ] && continue
+                if [ ! -e "$t" ]; then
+                  echo "::error file=$f::missing local target: $t"
+                  exit 1
+                fi
+              done || fail=1
+          done
+          echo "Local link check done."

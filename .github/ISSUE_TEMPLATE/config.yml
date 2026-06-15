@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔬 Try the live demo
+    url: https://proof.aeonscript.org/demo.html
+    about: Register a file, modify it, re-verify — see the verdict change.
+  - name: 📜 Read the spec first
+    url: https://github.com/aeonscript-spec/aeonproof/blob/main/spec/SPEC-PROOF-RECORD-v0.1.md
+    about: Check whether the spec already answers your question.
+  - name: 🧬 AeonScript (the foundation)
+    url: https://aeonscript.org
+    about: AeonProof is built on the AeonScript DNA storage standard.
