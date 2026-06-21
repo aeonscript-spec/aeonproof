@@ -244,13 +244,31 @@ async function signRecord(recNoSig){
 async function sha256Hex(bytes){ return hex(await crypto.subtle.digest("SHA-256", bytes)); }
 function normalizeText(s){ return s.toLowerCase().replace(/\s+/g," ").trim(); }
 function levRatio(a,b){a=a.slice(0,2000);b=b.slice(0,2000);const m=a.length,n=b.length;if(!m&&!n)return 1;if(!m||!n)return 0;let prev=Array(n+1).fill(0).map((_,i)=>i),cur=Array(n+1).fill(0);for(let i=1;i<=m;i++){cur[0]=i;for(let j=1;j<=n;j++){const c=a[i-1]===b[j-1]?0:1;cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+c);}[prev,cur]=[cur,prev];}return 1-prev[n]/Math.max(m,n);}
-async function aHashImage(bytes,mime){
+// pHash (DCT-based) — robust to compression, scaling, minor edits.
+// 1) decode to 32x32 grayscale  2) 2D DCT  3) keep top-left 8x8 low freqs
+// 4) threshold at the median (excluding DC)  5) 64-bit hash (hex)
+const PH_N=32;
+// precomputed 1D DCT-II cosine basis (32 samples)
+const _dctCos=(()=>{const t=[];for(let u=0;u<PH_N;u++){t[u]=[];for(let x=0;x<PH_N;x++)t[u][x]=Math.cos(((2*x+1)*u*Math.PI)/(2*PH_N));}return t;})();
+function dct2_8x8(g){ // g: PH_N*PH_N grayscale → returns 8x8 low-freq coefficients
+  // rows DCT (only need first 8 freqs), then cols DCT (first 8)
+  const tmp=new Array(8*PH_N);
+  for(let y=0;y<PH_N;y++){ for(let u=0;u<8;u++){ let s=0; const row=y*PH_N; const cu=_dctCos[u]; for(let x=0;x<PH_N;x++) s+=g[row+x]*cu[x]; tmp[y*8+u]=s; } }
+  const out=new Array(64);
+  for(let u=0;u<8;u++){ for(let v=0;v<8;v++){ let s=0; const cu=_dctCos[u]; for(let y=0;y<PH_N;y++) s+=tmp[y*8+v]*cu[y]; out[u*8+v]=s; } }
+  return out;
+}
+async function pHashImage(bytes,mime){
   const url=URL.createObjectURL(new Blob([bytes],{type:mime}));
   try{
     const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url;});
-    const c=document.createElement("canvas");c.width=8;c.height=8;const ctx=c.getContext("2d");ctx.drawImage(img,0,0,8,8);
-    const d=ctx.getImageData(0,0,8,8).data;const g=[];for(let i=0;i<64;i++)g.push(0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2]);
-    const avg=g.reduce((a,b)=>a+b,0)/64;let bits="";for(let i=0;i<64;i++)bits+=g[i]>=avg?"1":"0";
+    const c=document.createElement("canvas");c.width=PH_N;c.height=PH_N;const ctx=c.getContext("2d");ctx.drawImage(img,0,0,PH_N,PH_N);
+    const d=ctx.getImageData(0,0,PH_N,PH_N).data;const g=new Array(PH_N*PH_N);
+    for(let i=0;i<PH_N*PH_N;i++)g[i]=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];
+    const coef=dct2_8x8(g);
+    // median of the 63 AC coefficients (skip DC at index 0)
+    const ac=coef.slice(1).sort((a,b)=>a-b); const med=ac[Math.floor(ac.length/2)];
+    let bits="";for(let i=0;i<64;i++)bits+=(coef[i]>med?"1":"0");
     let h="";for(let i=0;i<64;i+=4)h+=parseInt(bits.slice(i,i+4),2).toString(16);return h;
   }finally{URL.revokeObjectURL(url);}
 }
@@ -274,7 +292,7 @@ async function doRegister(){
   }else{
     if(!reg.bytes){$("reg-out").textContent="Choisis un fichier d'abord.";return;}
     bytes=reg.bytes; mime=reg.mime;
-    if(mode==="image") phash={algo:"ahash",value:reg.phash};
+    if(mode==="image") phash={algo:"phash-dct",value:reg.phash};
   }
   const exact="sha256:"+await sha256Hex(bytes);
   const ts=Date.now();
@@ -319,9 +337,9 @@ async function doVerify(){
     if(best>=0.5){showVerdict("bad","🔴 Contenu altéré",`Texte clairement dérivé d'un original enregistré (similarité ${Math.round(best*100)}%) mais dont le contenu a été modifié. Falsification détectée.`);return;}
     showVerdict("neutral","⚪ Non enregistré","Aucun original correspondant. Le système ne peut rien affirmer sur ce fichier.");return;
   } else if(mode==="image"){
-    let bd=64;for(const x of cands)if(x.perceptual&&x.perceptual.algo==="ahash")bd=Math.min(bd,hammingHex(phash,x.perceptual.value));
-    if(bd<=4){showVerdict("warn","🟡 Même contenu, ré-encodé",`Empreinte perceptuelle quasi identique (distance ${bd}/64) — re-compression ou changement de format, contenu inchangé.`);return;}
-    if(bd<=18){showVerdict("bad","🔴 Contenu altéré",`Image proche d'un original mais visiblement modifiée (distance ${bd}/64). Retouche détectée.`);return;}
+    let bd=64;for(const x of cands)if(x.perceptual&&(x.perceptual.algo==="phash-dct"||x.perceptual.algo==="ahash"))bd=Math.min(bd,hammingHex(phash,x.perceptual.value));
+    if(bd<=6){showVerdict("warn","🟡 Même contenu, ré-encodé",`Empreinte perceptuelle quasi identique (distance ${bd}/64) — re-compression ou changement de format, contenu inchangé.`);return;}
+    if(bd<=22){showVerdict("bad","🔴 Contenu altéré",`Image proche d'un original mais visiblement modifiée (distance ${bd}/64). Retouche détectée.`);return;}
     showVerdict("neutral","⚪ Non enregistré",`Aucun original perceptuellement proche (distance ${bd}/64).`);return;
   } else {
     // file mode: exact hash integrity only (audio/video/pdf perceptual = production: Chromaprint/TMK)
@@ -343,7 +361,7 @@ function wireDrop(dropId,fileId,prevId,chipId,store){
     const bytes=new Uint8Array(await f.arrayBuffer());
     let phash=null;
     if(f.type.startsWith("image/")){
-      phash=await aHashImage(bytes,f.type);
+      phash=await pHashImage(bytes,f.type);
       const url=URL.createObjectURL(new Blob([bytes],{type:f.type}));
       prev.onload=()=>URL.revokeObjectURL(url);prev.src=url;prev.style.display="block";chip.style.display="none";
     }else{
